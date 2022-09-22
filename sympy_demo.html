@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>PyScript MathJax Demo</title>
+    <link rel="stylesheet" href="https://pyscript.net/alpha/pyscript.css" />
+    <script defer src="https://pyscript.net/alpha/pyscript.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+    <!-- and it's easy to individually load additional languages -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
+        integrity="sha512-hG/Qw6E14LsVUaQRSgw0RrFA1wl5QPG1a4bCOUgwzkGPIVFsOPUPpbr90DFavEEqFMwFXPVI0NS4MzKsInlKxQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"
+        integrity="sha512-2M0GdbU5OxkGYMhakED69bw0c1pW3Nb0PeF3+9d+SnwN1ryPx3wiDdNqK3gSM7KAU/pEV+2tFJFbMKjKAahOkQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
+        integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css"
+        integrity="sha512-R6PH4vSzF2Yxjdvb2p2FA06yWul+U0PDDav4b/od/oXf9Iw37zl10plvwOXelrjV2Ai7Eo3vyHeyFUjhXdBCVQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/hint/show-hint.min.js" integrity="sha512-Rx36KK4rJrsLJhzLBmhWGdQJKoog81hHm+0qBZD6IEF2+D+CqWiuiXhtAXoxJzucl4mx8zTYCGKX6zgq6+yLGQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/hint/show-hint.min.css" integrity="sha512-OmcLQEy8iGiD7PSm85s06dnR7G7C9C0VqahIPAj/KHk5RpOCmnC6R2ob1oK4/uwYhWa9BF1GC6tzxsC8TIx7Jg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        #editor {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 200px;
+            background: #6cf;
+        }
+
+        #history {
+            background: #444;
+            position: absolute;
+            top: 0px;
+            bottom: 200px;
+            left: 0px;
+            right: 0px;
+            padding: 10px;
+            overflow: auto;
+        }
+
+        .CodeMirror {
+            font-size: 16px;
+        }        
+
+        #MathDiv{
+            color:white;
+        }
+    </style>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+      tex2jax: {
+        inlineMath: [ ['$$','$$'], ["\\(","\\)"] ],
+        processEscapes: true
+      }
+    });
+  </script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+    <py-env>
+        - sympy
+    </py-env>
+</head>
+
+<body>
+    <div id="history">
+<div class="cell">
+<pre><code class="language-python"># Ctrl-Enter: execute the code
+# Ctrl-J: auto omplete
+# Ctrl-Up, Ctrl-Down: shistory
+# run #clear to clear the history
+</code></pre>
+
+    </div>
+
+    </div>
+    <div id="editor">
+    <py-script>
+import js
+import ast
+import sympy
+from sympy import abc
+from sympy import latex
+from pyodide import to_js
+import sys
+
+js.console.log(sys.version)
+
+env = {}
+
+exec('''
+from sympy.abc import *
+from sympy import *
+''', env, env)
+
+def my_exec(script, globals=None, locals=None):
+    '''Execute a script and return the value of the last expression'''
+    stmts = list(ast.iter_child_nodes(ast.parse(script)))
+    if not stmts:
+        return None
+    if isinstance(stmts[-1], ast.Expr):
+        # the last one is an expression and we will try to return the results
+        # so we first execute the previous statements
+        if len(stmts) > 1:
+            exec(compile(ast.Module(stmts[:-1], []), filename="<ast>", mode="exec"), globals, locals)
+        # then we eval the last one
+        return eval(compile(ast.Expression(body=stmts[-1].value), filename="<ast>", mode="eval"), globals, locals)
+    else:
+        # otherwise we just execute the entire code
+        return exec(script, globals, locals)
+
+
+def on_run(code):
+    lines = code.split('\n')
+    if lines:
+        command = lines[0].strip()
+        match command:
+            case '#clear':
+                js.clear_history()
+
+    res = my_exec(code, env, env)
+    if res is not None:
+        js.show(code, latex(res))
+
+js.create_editor(to_js(on_run))
+js.add_global_names(to_js(dir(sympy) + dir(abc)))
+    </py-script>
+    <script>
+        let history = [];
+        let current_index = 0;
+
+        function add_global_names(names){
+            console.log(names);
+            CodeMirror.registerHelper("hintWords", "python", names);
+        }
+
+        function clear_history() {
+            var d1 = document.getElementById('history');
+            d1.innerHTML = '';
+            editor.setValue('');
+        }
+
+        function draw(str) {
+            var math = MathJax.Hub.getAllJax("MathDiv");
+            math = math[math.length - 1];
+            MathJax.Hub.Queue(["Text", math, str]);
+        }
+
+        function show(code, res) {
+            var d1 = document.getElementById('history');
+            d1.insertAdjacentHTML('beforeend',
+                `
+<div class="cell">
+<pre><code class="language-python">${code}</code></pre>
+<div id="MathDiv">$$${res}$$</div>
+</div>
+`);
+            //    draw(res);
+            MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+            let nodes = document.querySelectorAll(".language-python");
+            hljs.highlightElement(nodes[nodes.length - 1]);
+            editor.execCommand("selectAll");
+            var objDiv = document.getElementById("history");
+            objDiv.scrollTop = objDiv.scrollHeight;
+        }
+
+        hljs.highlightAll();
+
+        function create_editor(run_callback) {
+            var myCodeMirror = CodeMirror(document.getElementById("editor"), {
+                value: "integrate(exp(x)*sin(x) + exp(x)*cos(x), x)",
+                mode: "python",
+                theme: "monokai",
+                extraKeys: {
+                    "Ctrl-Enter": function (cm) {
+                        let text = cm.getValue();
+                        history.push(text);
+                        current_index = history.length - 1;
+                        run_callback(cm.getValue());
+                    },
+                    "Ctrl-Up": function (cm){
+                        current_index --;
+                        if(current_index < 0){
+                            current_index = history.length - 1;
+                        }
+                        cm.setValue(history[current_index]);
+                    },
+                    "Ctrl-Down": function (cm){
+                        current_index ++;
+                        if(current_index == history.length){
+                            current_index = 0;
+                        }
+                        cm.setValue(history[current_index]);
+                    },
+                    "Ctrl-J": "autocomplete"
+                }
+            });
+            window.editor = myCodeMirror;
+            myCodeMirror.setSize(null, 200);
+        }
+    </script>
+</body>
+
+</html>
