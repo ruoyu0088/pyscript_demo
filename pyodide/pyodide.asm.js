@@ -11438,8 +11438,8 @@ var _createPyodideModule = (() => {
           var ret;
           var stream = FS.open(path, opts.flags);
           var stat = FS.stat(path);
-          // var length = stat.size;
-          var length = stream.file.data.length;
+          var length = stat.size;
+          if(length === 0) length = stream.file.data.length;
           var buf = new Uint8Array(length);
           FS.read(stream, buf, 0, length, 0);
           if (opts.encoding === "utf8") {
